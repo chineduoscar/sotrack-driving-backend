@@ -1,10 +1,12 @@
 import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import cors from "cors";
 import contactRoutes from "./routes/contact.route.js";
 import authRoutes from "./routes/auth.route.js";
 import paymentRoutes from "./routes/payment.route.js";
 import studentRoutes from "./routes/student.route.js";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 
@@ -12,7 +14,15 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
+app.use(cookieParser());
 
 app.use("/api/contact", contactRoutes);
 app.use("/api/auth", authRoutes);
