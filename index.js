@@ -2,7 +2,9 @@ import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import contactRoutes from "./routes/contact.route.js";
-import authRoutes from "./routes/auth.routes.js";
+import authRoutes from "./routes/auth.route.js";
+import paymentRoutes from "./routes/payment.route.js";
+import studentRoutes from "./routes/student.route.js";
 
 dotenv.config();
 
@@ -14,6 +16,8 @@ app.use(express.json());
 
 app.use("/api/contact", contactRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/payment", paymentRoutes);
+app.use("/api/student", studentRoutes);
 
 const start = async () => {
   try {
