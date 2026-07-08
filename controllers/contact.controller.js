@@ -75,3 +75,29 @@ export const getSingleContact = async (req, res) => {
     });
   }
 };
+
+export const deleteContact = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const contact = await Contact.findByIdAndDelete(id);
+
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Message deleted successfully.",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
+    });
+  }
+};

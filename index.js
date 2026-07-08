@@ -7,6 +7,7 @@ import authRoutes from "./routes/auth.route.js";
 import paymentRoutes from "./routes/payment.route.js";
 import studentRoutes from "./routes/student.route.js";
 import cookieParser from "cookie-parser";
+import zoneRoutes from "./routes/zone.route.js";
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/student", studentRoutes);
+app.use("/api/zone", zoneRoutes);
 
 const start = async () => {
   try {
