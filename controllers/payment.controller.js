@@ -1,39 +1,43 @@
 import axios from "axios";
 import Payment from "../models/payment.model.js";
 import crypto from "crypto";
+import { zones } from "../data/zones.ts";
 
 export const initializePayment = async (req, res) => {
   try {
-    const { fullName, email, phoneNumber, zone, amount } = req.body;
+    const { fullName, email, phoneNumber, zoneId } = req.body;
 
-    if (!fullName || !email || !phoneNumber || !zone || !amount) {
+    if (!fullName || !email || !phoneNumber || !zoneId) {
       return res.status(400).json({
         success: false,
         message: "All fields are required.",
       });
     }
 
-    const numericAmount = Number(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      return res.status(400).json({
+    const zone = zones.find((z) => z.id === Number(zoneId));
+
+    if (!zone) {
+      return res.status(404).json({
         success: false,
-        message: "Invalid amount.",
+        message: "Zone not found.",
       });
     }
 
+    const amount = zone.price;
     const reference = `SOTRACK_${Date.now()}`;
 
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
       {
         email,
-        amount: numericAmount * 100,
+        amount: amount * 100,
         reference,
-        callback_url: `${process.env.FRONTEND_URL}/payment/success`,
+        callback_url: `${process.env.FRONTEND_URL}/zones/${zone.id}/checkout/success`,
         metadata: {
           fullName,
           phoneNumber,
-          zone,
+          zoneId: zone.id,
+          zoneName: zone.name,
         },
       },
       {
@@ -44,13 +48,13 @@ export const initializePayment = async (req, res) => {
       },
     );
 
-    // Save a pending record so we have a trail even if the user never returns
     await Payment.create({
       fullName,
       email,
       phoneNumber,
-      zone,
-      amount: numericAmount,
+      zone: zone.name,
+      zoneId: zone.id,
+      amount,
       reference,
       status: "pending",
     });
