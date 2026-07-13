@@ -187,3 +187,102 @@ export const paystackWebhook = async (req, res) => {
     return res.sendStatus(500);
   }
 };
+
+export const getAllPayments = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    const filter = {};
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+
+    const payments = await Payment.find(filter).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: payments.length,
+      payments,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getDashboardStats = async (req, res) => {
+  try {
+    const [totals] = await Payment.aggregate([
+      { $match: { status: "success" } },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: "$amount" },
+          totalStudents: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const pendingCount = await Payment.countDocuments({ status: "pending" });
+    const failedCount = await Payment.countDocuments({ status: "failed" });
+    const totalAttempts = await Payment.countDocuments({});
+
+    // Revenue broken down by zone
+    const byZone = await Payment.aggregate([
+      { $match: { status: "success" } },
+      {
+        $group: {
+          _id: "$zone",
+          amount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { amount: -1 } },
+    ]);
+
+    // Last 7 days revenue trend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const dailyTrend = await Payment.aggregate([
+      { $match: { status: "success", createdAt: { $gte: sevenDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          amount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const recentPayments = await Payment.find({ status: "success" })
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalRevenue: totals?.totalAmount || 0,
+        totalStudents: totals?.totalStudents || 0,
+        pendingCount,
+        failedCount,
+        totalAttempts,
+        conversionRate: totalAttempts
+          ? (((totals?.totalStudents || 0) / totalAttempts) * 100).toFixed(1)
+          : 0,
+        byZone,
+        dailyTrend,
+        recentPayments,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
