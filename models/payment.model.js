@@ -27,6 +27,23 @@ const paymentSchema = new mongoose.Schema(
       trim: true,
     },
 
+    zoneId: {
+      type: Number,
+      required: true,
+    },
+
+    package: {
+      type: String,
+      enum: ["standard", "executive", "weekend", "weekendExecutive"],
+      required: true,
+    },
+
+    tier: {
+      type: String,
+      enum: ["nonExperience", "partialExperience", "refresher"],
+      required: true,
+    },
+
     amount: {
       type: Number,
       required: true,

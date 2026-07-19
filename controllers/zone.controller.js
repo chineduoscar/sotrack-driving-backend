@@ -1,4 +1,4 @@
-import { zones } from "../data/zones.ts";
+import { zones } from "../data/zones.js";
 
 export const getAllZones = (req, res) => {
   res.status(200).json({

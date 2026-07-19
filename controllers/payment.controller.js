@@ -1,16 +1,39 @@
 import axios from "axios";
 import Payment from "../models/payment.model.js";
 import crypto from "crypto";
-import { zones } from "../data/zones.ts";
+import { zones } from "../data/zones.js";
+import { PACKAGES, TIERS } from "../constants/pricing.constants.js";
 
 export const initializePayment = async (req, res) => {
   try {
-    const { fullName, email, phoneNumber, zoneId } = req.body;
+    const {
+      fullName,
+      email,
+      phoneNumber,
+      zoneId,
+      package: pkg,
+      tier,
+    } = req.body;
 
-    if (!fullName || !email || !phoneNumber || !zoneId) {
+    if (!fullName || !email || !phoneNumber || !zoneId || !pkg || !tier) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required.",
+        message:
+          "fullName, email, phoneNumber, zoneId, package, and tier are all required.",
+      });
+    }
+
+    if (!PACKAGES.includes(pkg)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid package selected.",
+      });
+    }
+
+    if (!TIERS.includes(tier)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid experience tier selected.",
       });
     }
 
@@ -23,7 +46,19 @@ export const initializePayment = async (req, res) => {
       });
     }
 
-    const amount = zone.price;
+    // Amount is always derived from our own pricing data, never from the
+    // client — this is what stops someone from tampering with the price
+    // in the checkout request.
+    const amount = zone.pricing[pkg]?.[tier];
+
+    if (amount === undefined) {
+      // e.g. "refresher" doesn't exist on weekendExecutive for this zone
+      return res.status(400).json({
+        success: false,
+        message: "That experience tier isn't available for this package.",
+      });
+    }
+
     const reference = `SOTRACK_${Date.now()}`;
 
     const response = await axios.post(
@@ -38,6 +73,8 @@ export const initializePayment = async (req, res) => {
           phoneNumber,
           zoneId: zone.id,
           zoneName: zone.name,
+          package: pkg,
+          tier,
         },
       },
       {
@@ -54,6 +91,8 @@ export const initializePayment = async (req, res) => {
       phoneNumber,
       zone: zone.name,
       zoneId: zone.id,
+      package: pkg,
+      tier,
       amount,
       reference,
       status: "pending",
@@ -110,7 +149,10 @@ export const verifyPayment = async (req, res) => {
       fullName: payment.metadata?.fullName,
       email: payment.customer?.email,
       phoneNumber: payment.metadata?.phoneNumber,
-      zone: payment.metadata?.zone,
+      zone: payment.metadata?.zoneName,
+      zoneId: payment.metadata?.zoneId,
+      package: payment.metadata?.package,
+      tier: payment.metadata?.tier,
       amount: payment.amount / 100,
       reference: payment.reference,
       paymentMethod: payment.channel,
@@ -165,7 +207,10 @@ export const paystackWebhook = async (req, res) => {
         fullName: payment.metadata?.fullName,
         email: payment.customer?.email,
         phoneNumber: payment.metadata?.phoneNumber,
-        zone: payment.metadata?.zone,
+        zone: payment.metadata?.zoneName,
+        zoneId: payment.metadata?.zoneId,
+        package: payment.metadata?.package,
+        tier: payment.metadata?.tier,
         amount: payment.amount / 100,
         reference: payment.reference,
         paymentMethod: payment.channel,
@@ -242,6 +287,19 @@ export const getDashboardStats = async (req, res) => {
       { $sort: { amount: -1 } },
     ]);
 
+    // Revenue broken down by package (standard / executive / weekend / weekendExecutive)
+    const byPackage = await Payment.aggregate([
+      { $match: { status: "success" } },
+      {
+        $group: {
+          _id: "$package",
+          amount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { amount: -1 } },
+    ]);
+
     // Last 7 days revenue trend
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
@@ -275,6 +333,7 @@ export const getDashboardStats = async (req, res) => {
           ? (((totals?.totalStudents || 0) / totalAttempts) * 100).toFixed(1)
           : 0,
         byZone,
+        byPackage,
         dailyTrend,
         recentPayments,
       },
