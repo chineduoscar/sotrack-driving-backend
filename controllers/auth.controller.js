@@ -5,7 +5,7 @@ import Auth from "../models/auth.model.js";
 // Signup
 export const signup = async (req, res) => {
   try {
-    const { fullName, email, password, role } = req.body;
+    const { fullName, email, password } = req.body;
 
     if (!fullName || !email || !password) {
       return res.status(400).json({
@@ -29,7 +29,6 @@ export const signup = async (req, res) => {
       fullName,
       email,
       password: hashedPassword,
-      role,
     });
 
     const token = jwt.sign(

@@ -4,11 +4,17 @@ import {
   getSingleStudent,
   deleteStudent,
 } from "../controllers/student.controller.js";
+import { authorize, authenticate } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/", getAllStudents);
-router.get("/:id", getSingleStudent);
-router.delete("/:id", deleteStudent);
+router.get("/", authenticate, authorize("admin", "superadmin"), getAllStudents);
+router.get(
+  "/:id",
+  authenticate,
+  authorize("admin", "superadmin"),
+  getSingleStudent,
+);
+router.delete("/:id", authenticate, authorize("superadmin"), deleteStudent);
 
 export default router;
