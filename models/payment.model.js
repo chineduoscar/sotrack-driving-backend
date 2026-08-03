@@ -1,8 +1,29 @@
 import mongoose from "mongoose";
 
+const refereeSchema = new mongoose.Schema(
+  {
+    name: { type: String, trim: true, default: null },
+    address: { type: String, trim: true, default: null },
+    phoneNumber: { type: String, trim: true, default: null },
+  },
+  { _id: false },
+);
+
 const paymentSchema = new mongoose.Schema(
   {
     fullName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    surname: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    otherName: {
       type: String,
       required: true,
       trim: true,
@@ -19,6 +40,65 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+
+    contactAddress: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    dateOfBirth: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    stateOfOrigin: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    maritalStatus: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    homeTown: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    qualification: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
+    previousExperience: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
+    languageSpoken: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    agreeToRules: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+
+    referee: {
+      type: refereeSchema,
+      default: null,
     },
 
     zone: {

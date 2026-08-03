@@ -11,8 +11,8 @@ import { authenticate, authorize } from "../middleware/auth.middleware.js";
 const router = express.Router();
 
 router.get("/", authenticate, authorize("admin", "superadmin"), getAllPayments);
-router.post("/initialize", authenticate, initializePayment);
-router.get("/verify/:reference", authenticate, verifyPayment);
+router.post("/initialize", initializePayment);
+router.get("/verify/:reference", verifyPayment);
 
 router.post(
   "/webhook",

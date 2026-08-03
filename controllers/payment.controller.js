@@ -8,18 +8,46 @@ export const initializePayment = async (req, res) => {
   try {
     const {
       fullName,
+      surname,
+      otherName,
       email,
       phoneNumber,
+      contactAddress,
+      dateOfBirth,
+      stateOfOrigin,
+      maritalStatus,
+      homeTown,
+      qualification,
+      previousExperience,
+      languageSpoken,
+      agreeToRules,
+      referee,
       zoneId,
       package: pkg,
       tier,
     } = req.body;
 
-    if (!fullName || !email || !phoneNumber || !zoneId || !pkg || !tier) {
+    if (
+      !fullName ||
+      !surname ||
+      !otherName ||
+      !email ||
+      !phoneNumber ||
+      !contactAddress ||
+      !dateOfBirth ||
+      !stateOfOrigin ||
+      !maritalStatus ||
+      !homeTown ||
+      !languageSpoken ||
+      !agreeToRules ||
+      !zoneId ||
+      !pkg ||
+      !tier
+    ) {
       return res.status(400).json({
         success: false,
         message:
-          "fullName, email, phoneNumber, zoneId, package, and tier are all required.",
+          "Please fill in all required fields and agree to the rules before continuing.",
       });
     }
 
@@ -61,6 +89,17 @@ export const initializePayment = async (req, res) => {
 
     const reference = `SOTRACK_${Date.now()}`;
 
+    // Referee is optional — only forward it if the person filled at least
+    // one field, so we don't store an object of empty strings.
+    const refereeData =
+      referee && (referee.name || referee.address || referee.phoneNumber)
+        ? {
+            name: referee.name || null,
+            address: referee.address || null,
+            phoneNumber: referee.phoneNumber || null,
+          }
+        : null;
+
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
       {
@@ -70,7 +109,19 @@ export const initializePayment = async (req, res) => {
         callback_url: `${process.env.FRONTEND_URL}/zones/${zone.id}/checkout/success`,
         metadata: {
           fullName,
+          surname,
+          otherName,
           phoneNumber,
+          contactAddress,
+          dateOfBirth,
+          stateOfOrigin,
+          maritalStatus,
+          homeTown,
+          qualification: qualification || null,
+          previousExperience: previousExperience || null,
+          languageSpoken,
+          agreeToRules,
+          referee: refereeData,
           zoneId: zone.id,
           zoneName: zone.name,
           package: pkg,
@@ -87,8 +138,20 @@ export const initializePayment = async (req, res) => {
 
     await Payment.create({
       fullName,
+      surname,
+      otherName,
       email,
       phoneNumber,
+      contactAddress,
+      dateOfBirth,
+      stateOfOrigin,
+      maritalStatus,
+      homeTown,
+      qualification: qualification || null,
+      previousExperience: previousExperience || null,
+      languageSpoken,
+      agreeToRules,
+      referee: refereeData,
       zone: zone.name,
       zoneId: zone.id,
       package: pkg,
@@ -112,6 +175,39 @@ export const initializePayment = async (req, res) => {
     });
   }
 };
+
+// Shared shape-mapper: Paystack's metadata (set during initializePayment)
+// is the source of truth once we're verifying/webhook-confirming a charge.
+const buildUpdateDataFromPaystack = (payment) => ({
+  fullName: payment.metadata?.fullName,
+  surname: payment.metadata?.surname,
+  otherName: payment.metadata?.otherName,
+  email: payment.customer?.email,
+  phoneNumber: payment.metadata?.phoneNumber,
+  contactAddress: payment.metadata?.contactAddress,
+  dateOfBirth: payment.metadata?.dateOfBirth,
+  stateOfOrigin: payment.metadata?.stateOfOrigin,
+  maritalStatus: payment.metadata?.maritalStatus,
+  homeTown: payment.metadata?.homeTown,
+  qualification: payment.metadata?.qualification ?? null,
+  previousExperience: payment.metadata?.previousExperience ?? null,
+  languageSpoken: payment.metadata?.languageSpoken,
+  agreeToRules: payment.metadata?.agreeToRules,
+  referee:
+    payment.metadata?.referee && typeof payment.metadata.referee === "object"
+      ? payment.metadata.referee
+      : null,
+  zone: payment.metadata?.zoneName,
+  zoneId: payment.metadata?.zoneId,
+  package: payment.metadata?.package,
+  tier: payment.metadata?.tier,
+  amount: payment.amount / 100,
+  reference: payment.reference,
+  paymentMethod: payment.channel,
+  currency: payment.currency,
+  status: payment.status,
+  paidAt: payment.paid_at,
+});
 
 export const verifyPayment = async (req, res) => {
   try {
@@ -145,21 +241,7 @@ export const verifyPayment = async (req, res) => {
       });
     }
 
-    const updateData = {
-      fullName: payment.metadata?.fullName,
-      email: payment.customer?.email,
-      phoneNumber: payment.metadata?.phoneNumber,
-      zone: payment.metadata?.zoneName,
-      zoneId: payment.metadata?.zoneId,
-      package: payment.metadata?.package,
-      tier: payment.metadata?.tier,
-      amount: payment.amount / 100,
-      reference: payment.reference,
-      paymentMethod: payment.channel,
-      currency: payment.currency,
-      status: payment.status,
-      paidAt: payment.paid_at,
-    };
+    const updateData = buildUpdateDataFromPaystack(payment);
 
     const savedPayment = await Payment.findOneAndUpdate(
       { reference },
@@ -174,6 +256,11 @@ export const verifyPayment = async (req, res) => {
       payment: savedPayment,
     });
   } catch (error) {
+    console.error(
+      "verifyPayment error:",
+      error.response?.status,
+      error.response?.data || error.message,
+    );
     return res.status(500).json({
       success: false,
       message: error.response?.data?.message || "Unable to verify payment.",
@@ -203,21 +290,7 @@ export const paystackWebhook = async (req, res) => {
     if (event.event === "charge.success") {
       const payment = event.data;
 
-      const updateData = {
-        fullName: payment.metadata?.fullName,
-        email: payment.customer?.email,
-        phoneNumber: payment.metadata?.phoneNumber,
-        zone: payment.metadata?.zoneName,
-        zoneId: payment.metadata?.zoneId,
-        package: payment.metadata?.package,
-        tier: payment.metadata?.tier,
-        amount: payment.amount / 100,
-        reference: payment.reference,
-        paymentMethod: payment.channel,
-        currency: payment.currency,
-        status: payment.status,
-        paidAt: payment.paid_at,
-      };
+      const updateData = buildUpdateDataFromPaystack(payment);
 
       await Payment.findOneAndUpdate(
         { reference: payment.reference },
@@ -232,7 +305,7 @@ export const paystackWebhook = async (req, res) => {
     return res.sendStatus(500);
   }
 };
-
+1;
 export const getAllPayments = async (req, res) => {
   try {
     const { status } = req.query;
