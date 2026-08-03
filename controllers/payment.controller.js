@@ -330,6 +330,31 @@ export const getAllPayments = async (req, res) => {
   }
 };
 
+export const deletePayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const payment = await Payment.findByIdAndDelete(id);
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment not found.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Payment deleted successfully.",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const getDashboardStats = async (req, res) => {
   try {
     const [totals] = await Payment.aggregate([

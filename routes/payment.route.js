@@ -4,6 +4,7 @@ import {
   verifyPayment,
   paystackWebhook,
   getAllPayments,
+  deletePayment,
   getDashboardStats,
 } from "../controllers/payment.controller.js";
 import { authenticate, authorize } from "../middleware/auth.middleware.js";
@@ -11,6 +12,7 @@ import { authenticate, authorize } from "../middleware/auth.middleware.js";
 const router = express.Router();
 
 router.get("/", authenticate, authorize("admin", "superadmin"), getAllPayments);
+router.delete("/:id", authenticate, authorize("superadmin"), deletePayment);
 router.post("/initialize", initializePayment);
 router.get("/verify/:reference", verifyPayment);
 
